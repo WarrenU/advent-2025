@@ -1,27 +1,34 @@
+class Dial:
+    def __init__(self, start: int, dial_count: int):
+        self.dial = start
+        self.dial_count = dial_count
+        self.zero_counter = 0
+    
+    def rotate(self, command: str):
+        direction = command[0]
+        amount = int(command[1:])
+        
+        if direction == 'L':
+            amount = -amount
+        
+        # rotate with wrap
+        self.dial = (self.dial + amount) % self.dial_count
+        if self.dial == 0:
+            self.zero_counter += 1
+
+    def get_zero_counter(self) -> int:
+        return self.zero_counter
+
+
 def main():
-    dial_val = 50
-    zero_counter = 0
-    with open('test.txt', 'r') as text_file:
-        for line in text_file:
-            row = line.strip()
-            delim = row[0]
-            rotations = int(row[1:])
-            add = -rotations if delim == 'L' else rotations
-            dial_val += add
-            delim = 1 * int(str(dial_val)[0]) if dial_val > 100 else 1
-            delim = 1 * int(str(dial_val)[1]) if dial_val < -99 else 1
-            print(delim)
-            if dial_val > 99:
-                dial_val -= 100 * delim
-            elif dial_val < 1:
-                dial_val += 100 * delim
-            if dial_val == 0 or dial_val == 100:
-                dial_val = 0
-                zero_counter += 1
-            print(dial_val, zero_counter)
-            
+    dial = Dial(50, 100)
+    with open('source.txt', 'r') as text_file:
+        for row in text_file:
+            command = row.strip()
+            dial.rotate(command)
                 
-        print(f'The Password is: {zero_counter}')
+    print(f'The Password is: {dial.get_zero_counter()}')
+
 
 if __name__ == "__main__":
     main()
