@@ -4,34 +4,49 @@ import (
 	"bufio"
 	"fmt"
 	"log"
+	"math/big"
 	"os"
-	"strconv"
 )
 
-func getMaximalBatteryValue(chargeStr string, batterySize int) int {
-	if len(chargeStr) < batterySize {
-		return 0
+// maxSubsequence returns the lexicographically largest subsequence of s
+// with exactly k characters, preserving original order.
+func maxSubsequence(s string, k int) (string, error) {
+	n := len(s)
+	if k <= 0 {
+		return "", fmt.Errorf("k must be positive")
+	}
+	if n < k {
+		return "", fmt.Errorf("input too short: need %d, have %d", k, n)
 	}
 
-	x := int(chargeStr[0] - '0')
-	y := int(chargeStr[1] - '0')
+	result := make([]byte, 0, k)
+	pos := 0
+	for picks := range k {
+		// end is the last index we can choose for this pick
+		// if we need to pick (k-picks) digits including this one,
+		// we must leave space for remaining-1 digits after the chosen index.
+		remaining := k - picks
+		end := n - remaining // inclusive
 
-	total := len(chargeStr) - 1
-
-	for i := range total {
-		b := int(chargeStr[i+1] - '0')
-
-		if b > x && i+1 != total {
-			x = b
-			y = int(chargeStr[i+2] - '0')
-		} else if b > y {
-			y = b
+		// find max digit in s[pos : end+1]
+		bestIdx := pos
+		best := s[pos]
+		for j := pos + 1; j <= end; j++ {
+			if s[j] > best {
+				best = s[j]
+				bestIdx = j
+				// early exit if we find '9'
+				if best == '9' {
+					break
+				}
+			}
 		}
+
+		result = append(result, best)
+		pos = bestIdx + 1
 	}
 
-	s := fmt.Sprintf("%d%d", x, y)
-	charge, _ := strconv.Atoi(s)
-	return charge
+	return string(result), nil
 }
 
 func main() {
@@ -42,9 +57,36 @@ func main() {
 	defer file.Close()
 
 	scanner := bufio.NewScanner(file)
-	chargesRunningSum := 0
+	k := 12
+	total := big.NewInt(0)
+
 	for scanner.Scan() {
-		chargesRunningSum += getMaximalBatteryValue(scanner.Text(), 2)
+		line := scanner.Text()
+		// trim possible spaces, but assume file lines are pure digit strings
+		if len(line) == 0 {
+			continue
+		}
+
+		best, err := maxSubsequence(line, k)
+		if err != nil {
+			// if line too short just skip or treat as zero; here we skip
+			log.Printf("skipping line: %v", err)
+			continue
+		}
+
+		fmt.Println(best)
+
+		n := new(big.Int)
+		if _, ok := n.SetString(best, 10); !ok {
+			log.Printf("failed to parse %q, skipping", best)
+			continue
+		}
+		total.Add(total, n)
 	}
-	fmt.Printf("Sum of all battery values is: %v\n", chargesRunningSum)
+
+	if err := scanner.Err(); err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Printf("Sum of all battery values is: %s\n", total.String())
 }
