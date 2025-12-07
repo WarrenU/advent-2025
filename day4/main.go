@@ -7,14 +7,15 @@ import (
 	"os"
 )
 
+// isCellAccessible returns true when the cell at r,c is an '@' and has
+// fewer than 4 adjacent '@' neighbors (8-directional).
 func isCellAccessible(stock [][]rune, r, c int) bool {
 	if stock[r][c] != '@' {
 		return false
 	}
 
 	rows := len(stock)
-	cols := len(stock[0])
-
+	// 8 directions
 	dirs := [8][2]int{
 		{-1, -1}, {-1, 0}, {-1, 1},
 		{0, -1}, {0, 1},
@@ -22,68 +23,110 @@ func isCellAccessible(stock [][]rune, r, c int) bool {
 	}
 
 	adj := 0
-
 	for _, d := range dirs {
 		nr := r + d[0]
 		nc := c + d[1]
 
-		if nr < 0 || nr >= rows || nc < 0 || nc >= cols {
+		if nr < 0 || nr >= rows {
 			continue
 		}
-
+		// guard for ragged rows
+		if nc < 0 || nc >= len(stock[nr]) {
+			continue
+		}
 		if stock[nr][nc] == '@' {
 			adj++
-		}
-	}
-
-	return adj < 4
-}
-
-func CountAccessible(stock [][]rune) int {
-	rows := len(stock)
-	if rows == 0 {
-		return 0
-	}
-	cols := len(stock[0])
-
-	total := 0
-	for r := range rows {
-		for c := range cols {
-			if isCellAccessible(stock, r, c) {
-				total++
+			// if already 4, we can stop counting
+			if adj == 4 {
+				return false
 			}
 		}
 	}
+	return true
+}
 
-	return total
+// markAccessibleOnce finds all accessible '@' in the current grid and
+// returns their coordinates. It does not mutate the grid.
+func markAccessibleOnce(stock [][]rune) [][2]int {
+	var marked [][2]int
+	for r := range len(stock) {
+		for c := range len(stock[r]) {
+			if isCellAccessible(stock, r, c) {
+				marked = append(marked, [2]int{r, c})
+			}
+		}
+	}
+	return marked
+}
+
+// applyIncrementalRemoval runs rounds until no more accessible '@' remain.
+// After each round it applies all replacements and prints the grid.
+// It returns the total removed.
+func applyIncrementalRemoval(stock [][]rune) int {
+	totalRemoved := 0
+	round := 0
+
+	// fmt.Println("Initial state:")
+	// printGrid(stock)
+	// fmt.Println()
+
+	for {
+		round++
+		toRemove := markAccessibleOnce(stock)
+		if len(toRemove) == 0 {
+			break
+		}
+
+		// Apply all removals simultaneously
+		for _, rc := range toRemove {
+			r, c := rc[0], rc[1]
+			stock[r][c] = 'x'
+		}
+
+		// fmt.Printf("Remove %d rolls of paper:\n", len(toRemove))
+		// printGrid(stock)
+		// fmt.Println()
+
+		totalRemoved += len(toRemove)
+		// continue to next round
+		_ = round
+	}
+
+	return totalRemoved
+}
+
+func printGrid(stock [][]rune) {
+	for _, row := range stock {
+		fmt.Println(string(row))
+	}
+}
+
+func readGridFromFile(path string) ([][]rune, error) {
+	f, err := os.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+
+	var stock [][]rune
+	scanner := bufio.NewScanner(f)
+	for scanner.Scan() {
+		line := scanner.Text()
+		row := []rune(line)
+		stock = append(stock, row)
+	}
+	if err := scanner.Err(); err != nil {
+		return nil, err
+	}
+	return stock, nil
 }
 
 func main() {
-	file, err := os.Open("input.txt")
+	stock, err := readGridFromFile("input.txt")
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer file.Close()
 
-	scanner := bufio.NewScanner(file)
-
-	stock := [][]rune{}
-	for scanner.Scan() {
-		line := scanner.Text()
-		if len(line) == 0 {
-			continue
-		}
-		stockRow := []rune{}
-		for _, r := range line {
-			stockRow = append(stockRow, r)
-		}
-		stock = append(stock, stockRow)
-	}
-
-	if err := scanner.Err(); err != nil {
-		log.Fatal(err)
-	}
-	total := CountAccessible(stock)
-
-	fmt.Printf("Total Rolls accessible is: %d\n", total)
+	total := applyIncrementalRemoval(stock)
+	fmt.Printf("Total removed: %d\n", total)
 }
