@@ -17,6 +17,16 @@ type Range struct {
 	End   *big.Int
 }
 
+// Count returns how many integer values are inside the range.
+// Example: start=3 end=5 returns 3 (3 4 5)
+func (r Range) Count() *big.Int {
+	one := big.NewInt(1)
+
+	diff := new(big.Int).Sub(r.End, r.Start)
+	diff.Add(diff, one)
+	return diff
+}
+
 var numRe = regexp.MustCompile(`\d+`)
 
 func cloneBig(x *big.Int) *big.Int { return new(big.Int).Set(x) }
@@ -130,10 +140,12 @@ func main() {
 	consolidated := consolidateRanges(ranges)
 
 	fmt.Println("Consolidated ranges:")
+	totalFreshIds := big.NewInt(0)
 	for _, r := range consolidated {
 		fmt.Printf("  %s-%s\n", r.Start.String(), r.End.String())
+		totalFreshIds.Add(totalFreshIds, r.Count())
 	}
-	fmt.Println()
+	fmt.Printf("Total fresh ids: %d\n", totalFreshIds)
 
 	// Lookup each id via binary search
 	matched := make([]*big.Int, 0, len(ids))
